@@ -89,7 +89,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
-    profile = UserProfileSerializer(required=False, read_only=True)
+    profile = serializers.SerializerMethodField()
     full_phone = serializers.SerializerMethodField()
     full_name = serializers.SerializerMethodField()
     token = serializers.SerializerMethodField()
@@ -99,13 +99,20 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['id', 'email', 'country_code', 'phone_number', 'full_phone', 'full_name', 'is_verified', 'profile', 'token']
         read_only_fields = ['is_verified', 'token']
 
+    def get_profile(self, obj):
+        try:
+            return UserProfileSerializer(obj.profile).data
+        except UserProfile.DoesNotExist:
+            return None
+
     def get_full_phone(self, obj):
         return obj.full_phone
 
     def get_full_name(self, obj):
-        if hasattr(obj, 'profile') and obj.profile:
-            return obj.profile.full_name or ""
-        return ""
+        try:
+            return obj.profile.full_name
+        except UserProfile.DoesNotExist:
+            return ""
 
     def get_token(self, obj):
         token, _ = Token.objects.get_or_create(user=obj)

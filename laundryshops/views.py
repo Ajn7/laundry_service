@@ -129,6 +129,10 @@ class ServiceOfferingListCreateView(generics.ListCreateAPIView):
     queryset = ServiceOffering.objects.all()
     serializer_class = ServiceOfferingSerializer
     permission_classes = [IsSuperAdmin]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['service_type__name', 'laundry_service__shop_name']
+    ordering_fields = ['price', 'service_type__name', 'laundry_service__shop_name']
+
 
 class ServiceOfferingDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = ServiceOffering.objects.all()

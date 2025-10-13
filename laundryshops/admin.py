@@ -1,4 +1,4 @@
-from django.contrib import admin
+fffrom django.contrib import admin
 from .models import LaundryService, ServiceType, ServiceOffering, OperatingHour, Review
 
 
