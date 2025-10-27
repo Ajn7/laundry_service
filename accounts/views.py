@@ -55,9 +55,9 @@ class SendOTPView(APIView):
 
         return Response({'status': 'error', 'message': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
-
 class VerifyOTPView(APIView):
     permission_classes = [AllowAny]
+
     def post(self, request):
         serializer = VerifyOTPSerializer(data=request.data)
         if serializer.is_valid():
@@ -66,19 +66,50 @@ class VerifyOTPView(APIView):
             # Get or create token
             token, _ = Token.objects.get_or_create(user=user)
 
-            # Prepare response payload
+            # Fetch related profile (if exists)
             profile = getattr(user, 'profile', None)
-            full_name = profile.full_name if profile else None
-            response_data = {
-                'status': 'success',
-                'user_exists': bool(profile),
-                'user_id': user.id,
-                'full_name': full_name,
-                'token': token.key,
+
+            # Prepare user data
+            user_data = {
+                "user_id": user.id,
+                "email": user.email,
+                "country_code": user.country_code,
+                "phone_number": user.phone_number,
+                "full_phone": user.full_phone,
+                "is_verified": user.is_verified,
+                "is_active": user.is_active,
+                "is_staff": user.is_staff,
+                "created_at": user.created_at,
+                "updated_at": user.updated_at,
             }
+
+            # Prepare profile data (nullable)
+            profile_data = {
+                "first_name": profile.first_name if profile else None,
+                "last_name": profile.last_name if profile else None,
+                "full_name": profile.full_name if profile and profile.full_name else None,
+                "pincode": profile.pincode if profile else None,
+                "address": profile.address if profile else None,
+                "created_at": profile.created_at if profile else None,
+                "updated_at": profile.updated_at if profile else None,
+            }
+
+            # Combine all data
+            response_data = {
+                "status": "success",
+                "user_exists": bool(profile),
+                "token": token.key,
+                "user": user_data,
+                "profile": profile_data,
+            }
+
             return Response(response_data, status=status.HTTP_200_OK)
 
-        return Response({'status': 'error', 'message': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"status": "error", "message": serializer.errors},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
 
 
 class UserProfileView(APIView):
