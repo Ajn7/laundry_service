@@ -26,7 +26,8 @@ SECRET_KEY = 'django-insecure-_@360lj*ey)+($2b+a!_^tda&x4t(ix1k-d!7#6g)%olc&w)a6
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    'harmonious-fulfillment-production-c21d.up.railway.app'
+    'harmonious-fulfillment-production-c21d.up.railway.app',
+    '144.24.54.145'
 ]
 
 
