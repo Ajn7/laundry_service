@@ -23,6 +23,11 @@ class SendOTPSerializer(serializers.Serializer):
         max_length=15,
         validators=[RegexValidator(r'^\d{6,15}$', 'Phone number must contain 6-15 digits')]
     )
+    user_type = serializers.ChoiceField(
+        choices=['customer', 'vendor'],
+        default='customer',
+        required=False
+    )
 
     def validate(self, data):
         email = data.get('email')
@@ -51,21 +56,27 @@ class VerifyOTPSerializer(serializers.Serializer):
     country_code = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     phone_number = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     otp = serializers.CharField(max_length=6, write_only=True)
+    user_type = serializers.ChoiceField(
+        choices=['customer', 'vendor'],
+        default='customer',
+        required=False
+    )
 
     def validate(self, data):
         email = data.get('email')
         country_code = data.get('country_code')
         phone_number = data.get('phone_number')
         otp_code = data.get('otp')
+        user_type = data.get('user_type', 'customer')
 
         if not email and not (country_code and phone_number):
             raise serializers.ValidationError("Either email or both country code and phone number must be provided")
 
         # Find or create the user: SendOTP should have created it, but create here if not present
         if email:
-            user, created = User.objects.get_or_create(email=email, defaults={'country_code': None, 'phone_number': None})
+            user, created = User.objects.get_or_create(email=email, defaults={'country_code': None, 'phone_number': None, 'user_type': user_type})
         else:
-            user, created = User.objects.get_or_create(country_code=country_code, phone_number=phone_number, defaults={'email': None})
+            user, created = User.objects.get_or_create(country_code=country_code, phone_number=phone_number, defaults={'email': None, 'user_type': user_type})
 
         # Lookup latest matching OTP for this user
         otp_qs = OTP.objects.filter(user=user, otp_code=otp_code, is_used=False, expires_at__gt=timezone.now())
@@ -96,8 +107,8 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'country_code', 'phone_number', 'full_phone', 'full_name', 'is_verified', 'profile', 'token']
-        read_only_fields = ['is_verified', 'token']
+        fields = ['id', 'email', 'country_code', 'phone_number', 'full_phone', 'full_name', 'user_type', 'is_verified', 'profile', 'token']
+        read_only_fields = ['is_verified', 'token', 'user_type']
 
     def get_profile(self, obj):
         try:

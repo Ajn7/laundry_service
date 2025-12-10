@@ -12,7 +12,9 @@ from .views import (
     ReviewDetailView,
     LaundryServiceSearchView,
     LaundryServiceNearbyView,
-    AddReviewView
+    AddReviewView,
+    VendorServicesListView,
+    address_search
 )
 
 urlpatterns = [
@@ -23,6 +25,12 @@ urlpatterns = [
     path('services/nearby/', LaundryServiceNearbyView.as_view(), name='service_nearby'),
     path('services/<int:pk>/add-review/', AddReviewView.as_view(), name='add_review'),
     path('services/<int:pk>/reviews/', ReviewListCreateView.as_view(), name='service_reviews'),
+    
+    # Vendor specific endpoints
+    path('vendor/services/', VendorServicesListView.as_view(), name='vendor_services_list'),
+    
+    # Address search endpoint
+    path('address-search/', address_search, name='address_search'),
     
     # Service Type endpoints
     path('service-types/', ServiceTypeListCreateView.as_view(), name='service_type_list_create'),

@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.core.validators import validate_email, RegexValidator
 from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
 import uuid
 import random
 from django.utils import timezone
@@ -58,6 +59,10 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
+    class UserType(models.TextChoices):
+        CUSTOMER = 'customer', _('Customer')
+        VENDOR = 'vendor', _('Vendor')
+    
     email = models.EmailField(max_length=255, unique=True, null=True, blank=True)
     country_code = models.CharField(
         max_length=5, null=True, blank=True,
@@ -66,6 +71,11 @@ class User(AbstractBaseUser, PermissionsMixin):
     phone_number = models.CharField(
         max_length=15, null=True, blank=True,
         validators=[RegexValidator(r'^\d{6,15}$', 'Phone number must contain 6-15 digits')]
+    )
+    user_type = models.CharField(
+        max_length=10,
+        choices=UserType.choices,
+        default=UserType.CUSTOMER
     )
     is_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)

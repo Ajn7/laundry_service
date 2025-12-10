@@ -1,12 +1,20 @@
 from django.db import models
-
-# Create your models here.
-from django.db import models
+from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils.translation import gettext_lazy as _
 
 class LaundryService(models.Model):
     """Main model for laundry service providers"""
+    
+    # Vendor/Owner information
+    vendor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name='laundry_services',
+        limit_choices_to={'user_type': 'vendor'},
+        null=True,
+        blank=True
+    )
     
     # Basic information
     shop_name = models.CharField(max_length=255, unique=True)
@@ -122,6 +130,13 @@ class OperatingHour(models.Model):
 class Review(models.Model):
     """Model for customer reviews"""
     
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='reviews',
+        null=True,
+        blank=True
+    )
     laundry_service = models.ForeignKey(
         LaundryService, 
         on_delete=models.CASCADE, 

@@ -21,4 +21,5 @@ class Booking(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Booking {self.id} by {self.user.username}"
+        user_identifier = self.user.email or self.user.full_phone or str(self.user.id)
+        return f"Booking {self.id} by {user_identifier}"

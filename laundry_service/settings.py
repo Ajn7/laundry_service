@@ -27,7 +27,8 @@ DEBUG = True
 
 ALLOWED_HOSTS = [
     'harmonious-fulfillment-production-c21d.up.railway.app',
-    '144.24.54.145'
+    '144.24.54.145',
+    '127.0.0.1'
 ]
 
 

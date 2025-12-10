@@ -23,19 +23,20 @@ class SendOTPView(APIView):
             email = serializer.validated_data.get('email')
             country_code = serializer.validated_data.get('country_code')
             phone_number = serializer.validated_data.get('phone_number')
+            user_type = serializer.validated_data.get('user_type', 'customer')
 
             try:
                 # Create or get the user record (minimal user). This keeps the flow idempotent.
                 if email:
                     user, created = User.objects.get_or_create(
                         email=email,
-                        defaults={'country_code': None, 'phone_number': None}
+                        defaults={'country_code': None, 'phone_number': None, 'user_type': user_type}
                     )
                 else:
                     user, created = User.objects.get_or_create(
                         country_code=country_code,
                         phone_number=phone_number,
-                        defaults={'email': None}
+                        defaults={'email': None, 'user_type': user_type}
                     )
             except Exception as e:
                 return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)

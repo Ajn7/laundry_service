@@ -9,25 +9,44 @@ from .serializers import (
     ServiceOfferingSerializer, OperatingHourSerializer, ReviewSerializer
 )
 
-class IsSuperAdmin(permissions.BasePermission):
+class IsVendor(permissions.BasePermission):
+    """Permission class to check if user is a vendor"""
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
             return True
-        return request.user and request.user.is_superuser
+        return request.user and request.user.is_authenticated and request.user.user_type == 'vendor'
+
+class IsVendorOwner(permissions.BasePermission):
+    """Permission class to check if user is the owner of the service"""
+    def has_object_permission(self, request, view, obj):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return obj.vendor == request.user
 
 # Laundry Service Views
 class LaundryServiceListCreateView(generics.ListCreateAPIView):
     queryset = LaundryService.objects.filter(is_active=True)
     serializer_class = LaundryServiceSerializer
-    permission_classes = [IsSuperAdmin]
+    permission_classes = [IsVendor]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['shop_name', 'district', 'state', 'zipcode']
     ordering_fields = ['rating', 'shop_name', 'created_at']
+    
+    def perform_create(self, serializer):
+        serializer.save(vendor=self.request.user)
 
 class LaundryServiceDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = LaundryService.objects.all()
     serializer_class = LaundryServiceSerializer
-    permission_classes = [IsSuperAdmin]
+    permission_classes = [IsVendorOwner]
+
+class VendorServicesListView(generics.ListAPIView):
+    """List all services owned by the authenticated vendor"""
+    serializer_class = LaundryServiceSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        return LaundryService.objects.filter(vendor=self.request.user)
 
 class LaundryServiceSearchView(generics.ListAPIView):
     serializer_class = LaundryServiceSerializer
@@ -38,11 +57,13 @@ class LaundryServiceSearchView(generics.ListAPIView):
         district = self.request.query_params.get('district', '')
         state = self.request.query_params.get('state', '')
         zipcode = self.request.query_params.get('zipcode', '')
+        city = self.request.query_params.get('city', '')
         
         if query:
             queryset = queryset.filter(
                 Q(shop_name__icontains=query) |
-                Q(description__icontains=query)
+                Q(description__icontains=query) |
+                Q(address__icontains=query)
             )
         
         if district:
@@ -54,7 +75,68 @@ class LaundryServiceSearchView(generics.ListAPIView):
         if zipcode:
             queryset = queryset.filter(zipcode__icontains=zipcode)
         
+        if city:
+            queryset = queryset.filter(
+                Q(district__icontains=city) |
+                Q(address__icontains=city)
+            )
+        
         return queryset
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def address_search(request):
+    """
+    Search for unique addresses, cities, states, and districts
+    Query params: q (search term), type (address/city/state/district)
+    """
+    query = request.GET.get('q', '').strip()
+    search_type = request.GET.get('type', 'all')
+    
+    if not query or len(query) < 2:
+        return Response({
+            'status': 'error',
+            'message': 'Query must be at least 2 characters'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    results = {
+        'districts': [],
+        'states': [],
+        'cities': [],
+        'addresses': []
+    }
+    
+    services = LaundryService.objects.filter(is_active=True)
+    
+    if search_type in ['all', 'district']:
+        districts = services.filter(
+            district__icontains=query
+        ).values_list('district', flat=True).distinct()[:10]
+        results['districts'] = list(districts)
+    
+    if search_type in ['all', 'state']:
+        states = services.filter(
+            state__icontains=query
+        ).values_list('state', flat=True).distinct()[:10]
+        results['states'] = list(states)
+    
+    if search_type in ['all', 'city']:
+        cities = services.filter(
+            Q(district__icontains=query)
+        ).values_list('district', flat=True).distinct()[:10]
+        results['cities'] = list(cities)
+    
+    if search_type in ['all', 'address']:
+        addresses = services.filter(
+            address__icontains=query
+        ).values('address', 'district', 'state', 'zipcode').distinct()[:10]
+        results['addresses'] = list(addresses)
+    
+    return Response({
+        'status': 'success',
+        'query': query,
+        'results': results
+    })
 
 class LaundryServiceNearbyView(generics.ListAPIView):
     serializer_class = LaundryServiceSerializer
@@ -117,38 +199,58 @@ class AddReviewView(generics.CreateAPIView):
 class ServiceTypeListCreateView(generics.ListCreateAPIView):
     queryset = ServiceType.objects.all()
     serializer_class = ServiceTypeSerializer
-    permission_classes = [IsSuperAdmin]
+    permission_classes = [IsVendor]
 
 class ServiceTypeDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = ServiceType.objects.all()
     serializer_class = ServiceTypeSerializer
-    permission_classes = [IsSuperAdmin]
+    permission_classes = [IsVendor]
 
 # Service Offering Views
 class ServiceOfferingListCreateView(generics.ListCreateAPIView):
-    queryset = ServiceOffering.objects.all()
     serializer_class = ServiceOfferingSerializer
-    permission_classes = [IsSuperAdmin]
+    permission_classes = [IsVendor]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['service_type__name', 'laundry_service__shop_name']
     ordering_fields = ['price', 'service_type__name', 'laundry_service__shop_name']
+    
+    def get_queryset(self):
+        # Vendors can only see offerings for their own services
+        if self.request.user.is_authenticated and self.request.user.user_type == 'vendor':
+            return ServiceOffering.objects.filter(laundry_service__vendor=self.request.user)
+        return ServiceOffering.objects.all()
 
 
 class ServiceOfferingDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = ServiceOffering.objects.all()
     serializer_class = ServiceOfferingSerializer
-    permission_classes = [IsSuperAdmin]
+    permission_classes = [IsVendor]
+    
+    def get_queryset(self):
+        # Vendors can only access offerings for their own services
+        if self.request.user.is_authenticated and self.request.user.user_type == 'vendor':
+            return ServiceOffering.objects.filter(laundry_service__vendor=self.request.user)
+        return ServiceOffering.objects.all()
 
 # Operating Hour Views
 class OperatingHourListCreateView(generics.ListCreateAPIView):
-    queryset = OperatingHour.objects.all()
     serializer_class = OperatingHourSerializer
-    permission_classes = [IsSuperAdmin]
+    permission_classes = [IsVendor]
+    
+    def get_queryset(self):
+        # Vendors can only see operating hours for their own services
+        if self.request.user.is_authenticated and self.request.user.user_type == 'vendor':
+            return OperatingHour.objects.filter(laundry_service__vendor=self.request.user)
+        return OperatingHour.objects.all()
 
 class OperatingHourDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = OperatingHour.objects.all()
     serializer_class = OperatingHourSerializer
-    permission_classes = [IsSuperAdmin]
+    permission_classes = [IsVendor]
+    
+    def get_queryset(self):
+        # Vendors can only access operating hours for their own services
+        if self.request.user.is_authenticated and self.request.user.user_type == 'vendor':
+            return OperatingHour.objects.filter(laundry_service__vendor=self.request.user)
+        return OperatingHour.objects.all()
 
 # Review Views
 class ReviewListCreateView(generics.ListCreateAPIView):

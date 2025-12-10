@@ -22,12 +22,13 @@ class OperatingHourSerializer(serializers.ModelSerializer):
         fields = ['id', 'day_of_week', 'day_name', 'opening_time', 'closing_time', 'is_closed']
 
 class ReviewSerializer(serializers.ModelSerializer):
-    user = serializers.ReadOnlyField(source='user.username')
+    user_email = serializers.ReadOnlyField(source='user.email')
+    user_phone = serializers.ReadOnlyField(source='user.full_phone')
     
     class Meta:
         model = Review
-        fields = ['id', 'user', 'customer_name', 'rating', 'comment', 'created_at']
-        read_only_fields = ['created_at']
+        fields = ['id', 'user', 'user_email', 'user_phone', 'customer_name', 'rating', 'comment', 'created_at']
+        read_only_fields = ['user', 'created_at']
 
 class LaundryServiceSerializer(serializers.ModelSerializer):
     service_offerings = ServiceOfferingSerializer(many=True, required=False)
@@ -37,13 +38,13 @@ class LaundryServiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = LaundryService
         fields = [
-            'id', 'shop_name', 'description', 'phone_number', 'email', 'website', 'locationUrl',
+            'id', 'vendor', 'shop_name', 'description', 'phone_number', 'email', 'website', 'locationUrl',
             'address', 'district', 'state', 'country', 'zipcode', 'latitude', 'longitude',
             'pickup_start_time', 'pickup_end_time', 'delivery_start_time', 'delivery_end_time',
             'rating', 'total_reviews', 'is_active', 'created_at', 'updated_at',
             'service_offerings', 'operating_hours', 'reviews'
         ]
-        read_only_fields = ['rating', 'total_reviews', 'created_at', 'updated_at']
+        read_only_fields = ['vendor', 'rating', 'total_reviews', 'created_at', 'updated_at']
     
     def create(self, validated_data):
         service_offerings_data = validated_data.pop('service_offerings', [])
